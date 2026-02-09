@@ -1,56 +1,45 @@
 
 const http = require("http");
-const assert = require("assert");
+const app = require("../app"); // <- si app.js está en la raíz y test/ dentro, esto está bien
 
-const BASE_URL = "http://localhost:3000";
+let server;
+const PORT = 3000;
+const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 function getJSON(path) {
   return new Promise((resolve, reject) => {
-    http.get(BASE_URL + path, (res) => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        resolve({
-          statusCode: res.statusCode,
-          body: JSON.parse(data)
+    http
+      .get(BASE_URL + path, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          resolve({
+            statusCode: res.statusCode,
+            body: JSON.parse(data),
+          });
         });
-      });
-    }).on("error", reject);
+      })
+      .on("error", reject);
   });
 }
 
-(async () => {
-  try {
-    console.log("🧪 Test estricto /planetas");
+beforeAll((done) => {
+  server = app.listen(PORT, done);
+});
 
-    const esperado = [
-      { nombre: "Mercurio", orden: 1, tipo: "Rocoso" },
-      { nombre: "Venus", orden: 2, tipo: "Rocoso" },
-      { nombre: "Tierra", orden: 3, tipo: "Rocoso" }
-    ];
+afterAll((done) => {
+  server.close(done);
+});
 
-    const res = await getJSON("/planetas");
+test("🧪 Test estricto /planetas", async () => {
+  const esperado = [
+    { nombre: "Mercurio", orden: 1, tipo: "Rocoso" },
+    { nombre: "Venus", orden: 2, tipo: "Rocoso" },
+    { nombre: "Tierra", orden: 3, tipo: "Rocoso" },
+  ];
 
-    assert.strictEqual(res.statusCode, 200);
-    assert.strictEqual(
-      res.body.length,
-      esperado.length,
-      "❌ Número de planetas incorrecto"
-    );
+  const res = await getJSON("/planetas");
 
-    res.body.forEach((p, i) => {
-      const e = esperado[i];
-
-      assert.strictEqual(p.nombre, e.nombre);
-      assert.strictEqual(p.orden, e.orden);
-      assert.strictEqual(p.tipo, e.tipo);
-    });
-
-    console.log("✅ OK (estricto)");
-    process.exit(0);
-
-  } catch (err) {
-    console.error(err.message);
-    process.exit(1);
-  }
-})();
+  expect(res.statusCode).toBe(200);
+  expect(res.body).toEqual(esperado); // igualdad estricta (sin campos extra)
+});
